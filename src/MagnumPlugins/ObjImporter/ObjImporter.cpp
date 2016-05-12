@@ -257,6 +257,7 @@ std::optional<MeshData3D> ObjImporter::doMesh3D(UnsignedInt id) {
     std::vector<UnsignedInt> textureCoordinateIndices;
     std::vector<UnsignedInt> normalIndices;
 
+    Vector3 minVertex(100000.0, 100000.0, 100000.0), maxVertex(-100000.0, -100000.0, -100000.0);
     try { while(_file->in->good() && _file->in->tellg() < end) {
         /* Ignore comments */
         if(_file->in->peek() == '#') {
@@ -282,6 +283,26 @@ std::optional<MeshData3D> ObjImporter::doMesh3D(UnsignedInt id) {
         if(keyword == "v") {
             Float extra{1.0f};
             const Vector3 data = extractFloatData<3>(contents, &extra);
+            if (data.x() < minVertex.x()) {
+                minVertex.x() = data.x();
+            }
+            if (data.y() < minVertex.y()) {
+                minVertex.y() = data.y();
+            }
+            if (data.z() < minVertex.z()) {
+                minVertex.z() = data.z();
+            }
+            
+            if (data.x() > maxVertex.x()) {
+                maxVertex.x() = data.x();
+            }
+            if (data.y() > maxVertex.y()) {
+                maxVertex.y() = data.y();
+            }
+            if (data.z() > maxVertex.z()) {
+                maxVertex.z() = data.z();
+            }
+            
             if(!Math::TypeTraits<Float>::equals(extra, 1.0f)) {
                 Error() << "Trade::ObjImporter::mesh3D(): homogeneous coordinates are not supported";
                 return std::nullopt;
@@ -436,6 +457,14 @@ std::optional<MeshData3D> ObjImporter::doMesh3D(UnsignedInt id) {
     if(textureCoordinates.empty() != textureCoordinateIndices.empty()) {
         Error() << "Trade::ObjImporter::mesh3D(): incomplete texture coordinate data";
         return std::nullopt;
+    }
+    
+    Vector3 boundingVertex = maxVertex - minVertex;
+    float fMaxVertex = boundingVertex.max() / 3;
+    float zMove = minVertex.z() + (maxVertex.z() - minVertex.z()) / 2;
+    for (Vector3 &po : positions) {
+        po.z() -= zMove;
+        po /= fMaxVertex;
     }
 
     /* All index arrays should have the same length */
